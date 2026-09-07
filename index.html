@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>완두 유전 실습실</title>
+<style>
+  :root{
+    --paper:#F1F3E8;
+    --paper-2:#FBFCF6;
+    --ink:#22301B;
+    --ink-soft:#5A6B4F;
+    --line:#C9D2B8;
+    --leaf:#5D8A3A;
+    --leaf-deep:#3A5B21;
+    --pod:#EDE2C4;
+    --pod-line:#D6C79C;
+    --sun:#E0AE2A;
+    --wrong:#B4462F;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;
+    font-size:16px;line-height:1.65;-webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 90px}
+  .gene{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:700;letter-spacing:.02em}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+  /* ---------- hero ---------- */
+  header.hero{padding:56px 0 34px;display:grid;grid-template-columns:1fr 150px;gap:24px;align-items:end;border-bottom:2px solid var(--ink)}
+  .hero h1{margin:0;font-size:clamp(34px,6.4vw,58px);line-height:1.02;font-weight:800;letter-spacing:-.03em}
+  .hero p{margin:14px 0 0;max-width:34em;color:var(--ink-soft);font-size:17px}
+  @media(max-width:640px){header.hero{grid-template-columns:1fr;gap:8px}.podart{justify-self:start;width:130px}}
+
+  section{padding-top:52px}
+  h2{font-size:clamp(22px,3.4vw,28px);margin:0 0 6px;font-weight:800;letter-spacing:-.02em}
+  .sub{margin:0 0 20px;color:var(--ink-soft);max-width:46em}
+
+  /* ---------- drag system ---------- */
+  .draggable{
+    touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;
+  }
+  .draggable:active{cursor:grabbing}
+  .draggable.lifting{opacity:.28}
+  .ghost{
+    position:fixed;z-index:999;pointer-events:none;transform:translate(-50%,-50%) rotate(-2deg);
+    box-shadow:0 10px 22px rgba(34,48,27,.22);opacity:.96;
+  }
+  .picked{box-shadow:0 0 0 3px var(--leaf)}
+  .dropzone.armed{border-color:var(--leaf);background:#F0F7E6}
+  .dropzone.hot{border-color:var(--leaf-deep);background:#E4F0D2}
+
+  .card{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--pod);border:1.5px solid var(--pod-line);border-radius:10px;
+    padding:9px 14px;font-size:15px;font-weight:700;color:var(--ink);
+  }
+  .card.gone{display:none}
+  .tray{
+    display:flex;flex-wrap:wrap;gap:10px;padding:14px;margin-bottom:20px;
+    background:var(--paper-2);border:1.5px dashed var(--line);border-radius:12px;min-height:62px;align-items:center;
+  }
+  .tray:empty::after,.tray.empty::after{content:"카드를 모두 옮겼습니다";color:#9AA88C;font-size:14px}
+  .traytitle{font-size:13.5px;color:var(--ink-soft);margin:0 0 8px}
+
+  /* ---------- reasons ---------- */
+  .reasons{display:grid;grid-template-columns:repeat(2,1fr);gap:0;border:1.5px solid var(--ink);border-radius:var(--r);overflow:hidden;background:var(--paper-2)}
+  .reason{padding:20px 22px 22px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .reason:nth-child(2n){border-right:none}
+  .reason:nth-child(n+3){border-bottom:none}
+  .reason .stmt{font-size:17.5px;font-weight:700;line-height:2.1}
+  .reason p{margin:8px 0 0;font-size:14.5px;color:var(--ink-soft)}
+  .blank{
+    display:inline-block;min-width:104px;text-align:center;vertical-align:middle;
+    border:2px dashed var(--line);border-radius:9px;background:#fff;
+    padding:4px 10px;font-size:16px;color:#9AA88C;font-weight:600;
+  }
+  .blank.done{border-style:solid;border-color:var(--leaf);background:#F2F8EA;color:var(--ink)}
+  @media(max-width:640px){
+    .reasons{grid-template-columns:1fr}
+    .reason{border-right:none!important;border-bottom:1px solid var(--line)!important}
+    .reason:last-child{border-bottom:none!important}
+  }
+
+  /* ---------- pollination ---------- */
+  .pollen-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .pcard{background:var(--paper-2);border:1.5px solid var(--ink);border-radius:var(--r);padding:18px 18px 20px}
+  .pcard h3{margin:0 0 2px;font-size:19px}
+  .pcard .tag{font-size:15px;color:var(--ink);margin:8px 0 10px;line-height:1.5}
+  .pcard .pt{
+    margin:10px 0 0;font-size:14.5px;font-weight:700;color:var(--leaf-deep);
+    background:#F2F8EA;border:1.5px solid var(--leaf);border-radius:9px;
+    display:inline-block;padding:6px 12px;
+  }
+  .pcard h3 .namedrop{min-width:132px;font-size:18px;font-weight:800;padding:5px 12px}
+  @media(max-width:640px){.pollen-grid{grid-template-columns:1fr}}
+
+  /* ---------- simulator ---------- */
+  .simhead{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
+  .traitswitch{display:flex;gap:6px;background:var(--paper-2);border:1.5px solid var(--ink);border-radius:999px;padding:4px}
+  .traitswitch button{font:inherit;font-size:14px;font-weight:700;border:0;background:transparent;color:var(--ink-soft);padding:7px 15px;border-radius:999px;cursor:pointer}
+  .traitswitch button[aria-pressed="true"]{background:var(--ink);color:var(--paper-2)}
+
+  .board{margin-top:20px;border:1.5px solid var(--ink);border-radius:var(--r);background:var(--paper-2);overflow:hidden}
+  .step{border-bottom:1px solid var(--line)}
+  .step:last-child{border-bottom:none}
+  .step[data-locked="true"]{opacity:.38;filter:saturate(.4)}
+  .step[data-locked="true"] .stepbody{display:none}
+  .stephead{display:flex;gap:12px;align-items:baseline;padding:18px 22px 0}
+  .stepnum{font-family:Georgia,serif;font-weight:700;font-size:15px;width:26px;height:26px;flex:none;border-radius:50%;border:1.5px solid var(--ink);display:grid;place-items:center;line-height:1;transform:translateY(3px)}
+  .step[data-done="true"] .stepnum{background:var(--leaf-deep);border-color:var(--leaf-deep);color:#fff}
+  .stephead h3{margin:0;font-size:19px;font-weight:800;letter-spacing:-.01em}
+  .stephead .hint{margin:2px 0 0;font-size:14px;color:var(--ink-soft)}
+  .stepbody{padding:16px 22px 26px}
+
+  .cross{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:start;max-width:580px}
+  .plant{text-align:center}
+  .plant .role{font-size:13px;color:var(--ink-soft);margin-bottom:4px}
+  .plant .geno{font-size:20px}
+  .xmark{align-self:center;font-size:22px;color:var(--ink-soft);padding-top:40px}
+  @media(max-width:560px){.cross{grid-template-columns:1fr;justify-items:center}.xmark{padding:0}}
+
+  .peaframe{width:104px;height:104px;margin:0 auto;display:grid;place-items:center}
+  .peaframe.sm{width:72px;height:72px}
+
+  .alleles{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+  .allele{
+    font-family:Georgia,serif;font-style:italic;font-weight:700;font-size:19px;
+    min-width:46px;padding:8px 12px;text-align:center;
+    background:var(--pod);border:1.5px solid var(--pod-line);border-radius:9px;color:var(--ink);
+  }
+  .chiplabel{font-size:12.5px;color:var(--ink-soft);text-align:center;margin-top:12px}
+
+  .slot{
+    margin:10px auto 0;width:84px;height:56px;display:grid;place-items:center;
+    border:2px dashed var(--line);border-radius:10px;background:#fff;
+    font-family:Georgia,serif;font-style:italic;font-weight:700;font-size:23px;color:var(--ink);
+  }
+  .slot.filled{border-style:solid;border-color:var(--leaf);background:#F2F8EA}
+  .slot .ph{font:400 12px/1 "Pretendard",sans-serif;font-style:normal;color:#9AA88C}
+
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px}
+  button.act{font:inherit;font-weight:700;font-size:15px;background:var(--leaf-deep);color:#fff;border:0;border-radius:10px;padding:11px 20px;cursor:pointer}
+  button.act:hover{background:#31501B}
+  button.act:disabled{background:#B9C4AC;cursor:not-allowed}
+  button.ghostbtn{font:inherit;font-weight:700;font-size:14.5px;background:transparent;border:1.5px solid var(--ink);color:var(--ink);border-radius:10px;padding:9px 16px;cursor:pointer}
+  button:focus-visible,.draggable:focus-visible,.dropzone:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+
+  select{font-family:Georgia,serif;font-style:italic;font-weight:700;font-size:17px;padding:8px 10px;border:1.5px solid var(--pod-line);border-radius:9px;background:#fff;color:var(--ink);cursor:pointer}
+  select.ok{border-color:var(--leaf);background:#F2F8EA}
+  select.no{border-color:var(--wrong);background:#FBEDE9}
+
+  .msg{margin-top:14px;font-size:14.5px;font-weight:600;min-height:1.2em}
+  .msg.ok{color:var(--leaf-deep)}
+  .msg.no{color:var(--wrong)}
+  .shake{animation:sh .3s}
+  @keyframes sh{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  .f1out{margin-top:18px;padding:16px 18px;border:1.5px solid var(--leaf);border-radius:12px;background:#F2F8EA;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .f1out .txt{font-size:15px}
+
+  .punnett{display:inline-block;background:var(--pod);border:1.5px solid var(--pod-line);border-radius:12px;padding:10px}
+  table.pn{border-collapse:separate;border-spacing:8px}
+  table.pn th,table.pn td{padding:0;text-align:center;vertical-align:middle}
+  .corner{width:86px;height:60px}
+  .corner .cap{font-size:12px;color:var(--ink-soft);line-height:1.35}
+  .gslot{
+    width:86px;height:60px;display:grid;place-items:center;background:#fff;
+    border:2px dashed var(--line);border-radius:10px;
+    font-family:Georgia,serif;font-style:italic;font-weight:700;font-size:21px;color:var(--ink);
+  }
+  .gslot .ph{font:400 12px/1 "Pretendard",sans-serif;font-style:normal;color:#9AA88C}
+  .gslot.filled{border-style:solid;border-color:var(--pod-line);background:#FCF7EA}
+  .gslot.ok{border-color:var(--leaf);background:#F2F8EA}
+  .gslot.no{border-color:var(--wrong);background:#FBEDE9}
+  .cell{width:134px;height:152px;background:var(--paper-2);border:1.5px solid var(--pod-line);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:6px}
+  .cell.ok{border-color:var(--leaf);background:#F4F9EC}
+  .cell.no{border-color:var(--wrong)}
+  .pnwrap{overflow-x:auto;padding-bottom:6px}
+  @media(max-width:640px){
+    .cell{width:106px;height:128px}
+    .corner,.gslot{width:74px;height:54px}
+    select{font-size:15px;padding:7px 6px}
+  }
+
+  .ratio{margin-top:20px;padding:18px 20px;border:1.5px solid var(--ink);border-radius:12px;background:var(--pod)}
+  .ratio h4{margin:0 0 10px;font-size:16px}
+  .ratio .line{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:15px;margin-bottom:6px}
+  .ratio .big{font-family:Georgia,serif;font-weight:700;font-size:18px}
+
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);color:var(--ink-soft);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div>
+    <h1>완두 유전 실습실</h1>
+    <p>카드를 끌어다 놓으며 멘델의 실험을 따라가 봅니다. 카드를 한 번 눌러 고른 뒤 빈칸을 눌러도 들어갑니다.</p>
+  </div>
+  <div class="podart" id="podart"></div>
+</header>
+
+<!-- 1. 왜 완두인가 -->
+<section id="why">
+  <h2>멘델은 왜 완두를 골랐을까</h2>
+  <p class="sub">유전 실험에 쓸 생물은 아무거나 되지 않습니다. 아래 카드를 알맞은 빈칸으로 끌어다 놓아 완두의 네 가지 조건을 완성하세요.</p>
+  <p class="traytitle" id="whyStatus"></p>
+  <div class="tray" id="whyTray"></div>
+  <div class="reasons">
+    <div class="reason">
+      <div class="stmt">완두는 <span class="blank" id="why0" tabindex="0">?</span>가 짧다</div>
+      <p>씨를 심고 다시 씨를 얻기까지 오래 걸리지 않아, 여러 세대를 이어서 관찰할 수 있습니다.</p>
+    </div>
+    <div class="reason">
+      <div class="stmt">완두는 한 번에 얻는 <span class="blank" id="why1" tabindex="0">?</span>가 많다</div>
+      <p>수가 많을수록 우연은 줄고 비율은 또렷해집니다. 3:1이 눈에 보이려면 많이 필요합니다.</p>
+    </div>
+    <div class="reason">
+      <div class="stmt">완두는 <span class="blank" id="why2" tabindex="0">?</span>이 뚜렷하다</div>
+      <p>둥글거나 주름지거나, 노랗거나 초록이거나. 중간이 없어서 세어서 비교하기 쉽습니다.</p>
+    </div>
+    <div class="reason">
+      <div class="stmt">완두는 자유롭게 <span class="blank" id="why3" tabindex="0">?</span>할 수 있다</div>
+      <p>보통은 스스로 수분하지만, 사람이 꽃가루를 옮겨 원하는 짝끼리 붙여줄 수도 있습니다.</p>
+    </div>
+  </div>
+  <div class="row"><button class="ghostbtn" id="whyReset">카드 다시 놓기</button></div>
+  <p class="msg" id="whyMsg"></p>
+</section>
+
+<!-- 2. 수분 -->
+<section id="pollination">
+  <h2>꽃가루가 어디로 가느냐</h2>
+  <p class="sub">완두의 마지막 장점이 여기서 나옵니다. 꽃가루를 같은 그루에 둘 수도, 다른 그루로 옮겨줄 수도 있습니다. 설명을 읽고 이름표 카드를 제목 자리에 끌어다 놓으세요.</p>
+  <div class="tray" id="polTray"></div>
+  <div class="pollen-grid">
+    <div class="pcard">
+      <h3><span class="blank namedrop" id="polSelf" tabindex="0">?</span></h3>
+      <p class="tag">수술의 꽃가루를 같은 그루의 암술에 옮기는 것</p>
+      <svg width="100%" height="80" viewBox="0 0 260 80" fill="none" aria-hidden="true">
+        <path d="M130 72V44" stroke="#3A5B21" stroke-width="2.5"/>
+        <path d="M130 52c-8-4-13-2-13-2s4 6 13 4z" fill="#7CA84F"/>
+        <circle cx="130" cy="34" r="13" fill="#EDE2C4" stroke="#D6C79C" stroke-width="2"/>
+        <circle cx="130" cy="34" r="4" fill="#E0AE2A"/>
+        <path d="M147 26c14 0 16 22 0 22" stroke="#3A5B21" stroke-width="2" stroke-dasharray="4 4"/>
+        <path d="M150 48l-5-3 1 5z" fill="#3A5B21"/>
+      </svg>
+      <p class="pt">같은 유전자형과 교배</p>
+    </div>
+    <div class="pcard">
+      <h3><span class="blank namedrop" id="polCross" tabindex="0">?</span></h3>
+      <p class="tag">수술의 꽃가루를 다른 그루의 암술에 옮기는 것</p>
+      <svg width="100%" height="80" viewBox="0 0 260 80" fill="none" aria-hidden="true">
+        <path d="M70 72V44M190 72V44" stroke="#3A5B21" stroke-width="2.5"/>
+        <path d="M70 52c-8-4-13-2-13-2s4 6 13 4z" fill="#7CA84F"/>
+        <path d="M190 52c8-4 13-2 13-2s-4 6-13 4z" fill="#7CA84F"/>
+        <circle cx="70" cy="34" r="13" fill="#EDE2C4" stroke="#D6C79C" stroke-width="2"/>
+        <circle cx="70" cy="34" r="4" fill="#E0AE2A"/>
+        <circle cx="190" cy="34" r="13" fill="#EDE2C4" stroke="#D6C79C" stroke-width="2"/>
+        <circle cx="190" cy="34" r="4" fill="#E0AE2A"/>
+        <path d="M87 30c30-16 60-16 86 2" stroke="#3A5B21" stroke-width="2" stroke-dasharray="4 4"/>
+        <path d="M176 32l-3-6 6 1z" fill="#3A5B21"/>
+      </svg>
+      <p class="pt">다른 유전자형과 교배</p>
+    </div>
+  </div>
+  <div class="row"><button class="ghostbtn" id="polReset">카드 다시 놓기</button></div>
+  <p class="msg" id="polMsg"></p>
+</section>
+
+<!-- 3. 시뮬레이터 -->
+<section id="sim">
+  <div class="simhead">
+    <div>
+      <h2>완두 시뮬레이터</h2>
+      <p class="sub" style="margin-bottom:0">생식세포를 끌어다 칸에 넣고, 자손의 유전자형을 골라 보세요.</p>
+    </div>
+    <div class="traitswitch" role="group" aria-label="형질 고르기">
+      <button type="button" id="btShape" aria-pressed="true">모양</button>
+      <button type="button" id="btColor" aria-pressed="false">색깔</button>
+    </div>
+  </div>
+  <p class="sub" id="traitIntro" style="margin-top:16px"></p>
+
+  <div class="board">
+    <div class="step" id="step1" data-done="false">
+      <div class="stephead">
+        <div class="stepnum">1</div>
+        <div><h3>순종 어버이에서 생식세포 뽑기</h3><p class="hint" id="s1hint"></p></div>
+      </div>
+      <div class="stepbody">
+        <div class="cross">
+          <div class="plant">
+            <div class="role">어버이 · 씨를 받을 꽃</div>
+            <div id="p1pea"></div>
+            <div class="geno gene" id="p1geno"></div>
+            <div class="chiplabel">유전자를 하나 끌어내리세요</div>
+            <div class="alleles" id="p1chips"></div>
+            <div class="slot" id="slotEgg" tabindex="0"><span class="ph">난세포</span></div>
+          </div>
+          <div class="xmark">×</div>
+          <div class="plant">
+            <div class="role">어버이 · 꽃가루를 줄 꽃</div>
+            <div id="p2pea"></div>
+            <div class="geno gene" id="p2geno"></div>
+            <div class="chiplabel">유전자를 하나 끌어내리세요</div>
+            <div class="alleles" id="p2chips"></div>
+            <div class="slot" id="slotPollen" tabindex="0"><span class="ph">꽃가루</span></div>
+          </div>
+        </div>
+        <div class="row">
+          <button class="act" id="s1check" disabled>수정시키기</button>
+          <button class="ghostbtn" id="s1reset">다시 뽑기</button>
+        </div>
+        <p class="msg" id="s1msg"></p>
+        <div id="s1result"></div>
+      </div>
+    </div>
+
+    <div class="step" id="step2" data-locked="true" data-done="false">
+      <div class="stephead">
+        <div class="stepnum">2</div>
+        <div><h3>자손 1대를 자가수분시키기</h3><p class="hint" id="s2hint"></p></div>
+      </div>
+      <div class="stepbody">
+        <div class="cross">
+          <div class="plant">
+            <div class="role">자손 1대</div>
+            <div id="f1peaL"></div>
+            <div class="geno gene" id="f1genoL"></div>
+          </div>
+          <div class="xmark">×</div>
+          <div class="plant">
+            <div class="role">같은 개체의 꽃가루</div>
+            <div id="f1peaR"></div>
+            <div style="margin-top:6px">
+              <label class="sr" for="s2sel">오른쪽 완두의 유전자형</label>
+              <select id="s2sel"></select>
+            </div>
+          </div>
+        </div>
+        <div class="row"><button class="act" id="s2check">확인하기</button></div>
+        <p class="msg" id="s2msg"></p>
+      </div>
+    </div>
+
+    <div class="step" id="step3" data-locked="true" data-done="false">
+      <div class="stephead">
+        <div class="stepnum">3</div>
+        <div><h3>자손 2대 표 채우기</h3><p class="hint" id="s3hint"></p></div>
+      </div>
+      <div class="stepbody">
+        <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:center;margin-bottom:18px">
+          <div style="text-align:center">
+            <div class="role" style="font-size:13px;color:var(--ink-soft)">자손 1대</div>
+            <div id="s3pea"></div>
+            <div class="gene" id="s3geno" style="font-size:19px"></div>
+          </div>
+          <div>
+            <div class="chiplabel" style="text-align:left;margin-top:0">이 완두가 만드는 생식세포를 끌어다 표 바깥 칸에 넣으세요</div>
+            <div class="alleles" id="s3chips" style="justify-content:flex-start"></div>
+          </div>
+        </div>
+
+        <div class="pnwrap">
+          <div class="punnett">
+            <table class="pn">
+              <tr>
+                <th class="corner"><div class="cap">꽃가루 →<br>↓ 난세포</div></th>
+                <th><div class="gslot" id="col0" tabindex="0"><span class="ph">꽃가루</span></div></th>
+                <th><div class="gslot" id="col1" tabindex="0"><span class="ph">꽃가루</span></div></th>
+              </tr>
+              <tr>
+                <th><div class="gslot" id="row0" tabindex="0"><span class="ph">난세포</span></div></th>
+                <td><div class="cell" id="cell0"></div></td>
+                <td><div class="cell" id="cell1"></div></td>
+              </tr>
+              <tr>
+                <th><div class="gslot" id="row1" tabindex="0"><span class="ph">난세포</span></div></th>
+                <td><div class="cell" id="cell2"></div></td>
+                <td><div class="cell" id="cell3"></div></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="row">
+          <button class="act" id="s3check">표 확인하기</button>
+          <button class="ghostbtn" id="s3reset">표 비우기</button>
+        </div>
+        <p class="msg" id="s3msg"></p>
+        <div id="s3result"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>우성 유전자는 대문자, 열성 유전자는 소문자로 씁니다. 유전자형에 우성이 하나라도 있으면 겉모습은 우성 형질로 나타납니다.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= 드래그 엔진 ================= */
+var DND=(function(){
+  var zones=[], drag=null, ghost=null, sx=0, sy=0, moved=false, sel=null, hot=null;
+
+  function zonesOf(g){ return zones.filter(function(z){return z.group===g;}); }
+  function arm(g,on){ zonesOf(g).forEach(function(z){ z.el.classList.toggle('armed',on); }); }
+  function unpick(){
+    if(sel){ sel.el.classList.remove('picked'); arm(sel.group,false); sel=null; }
+  }
+
+  function register(el,group,value){
+    el.classList.add('draggable');
+    el.dataset.group=group; el.dataset.value=value;
+    el.addEventListener('pointerdown',down);
+    el.addEventListener('keydown',function(e){
+      if(e.key===' '||e.key==='Enter'){ e.preventDefault(); tap(el,group,value); }
+    });
+  }
+  function down(e){
+    if(e.button!==undefined&&e.button!==0) return;
+    var el=e.currentTarget;
+    if(el.dataset.off==='1') return;
+    e.preventDefault();
+    drag={el:el,group:el.dataset.group,value:el.dataset.value};
+    moved=false; sx=e.clientX; sy=e.clientY;
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',up);
+    document.addEventListener('pointercancel',up);
+  }
+  function move(e){
+    if(!drag) return;
+    if(!moved){
+      if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)<8) return;
+      moved=true;
+      unpick();
+      var r=drag.el.getBoundingClientRect();
+      ghost=drag.el.cloneNode(true);
+      ghost.classList.add('ghost');
+      ghost.style.width=r.width+'px';
+      ghost.style.height=r.height+'px';
+      document.body.appendChild(ghost);
+      drag.el.classList.add('lifting');
+      arm(drag.group,true);
+    }
+    ghost.style.left=e.clientX+'px';
+    ghost.style.top=e.clientY+'px';
+    var z=zoneAt(e.clientX,e.clientY,drag.group);
+    if(hot&&(!z||z.el!==hot)) hot.classList.remove('hot');
+    hot = z ? z.el : null;
+    if(hot) hot.classList.add('hot');
+  }
+  function up(e){
+    document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',up);
+    document.removeEventListener('pointercancel',up);
+    if(!drag) return;
+    var d=drag; drag=null;
+    if(moved){
+      if(ghost){ ghost.remove(); ghost=null; }
+      d.el.classList.remove('lifting');
+      arm(d.group,false);
+      if(hot){ hot.classList.remove('hot'); hot=null; }
+      var z=zoneAt(e.clientX,e.clientY,d.group);
+      if(z) z.onDrop(d.value,d.el);
+    } else {
+      tap(d.el,d.group,d.value);
+    }
+  }
+  function tap(el,group,value){
+    if(sel&&sel.el===el){ unpick(); return; }
+    unpick();
+    sel={el:el,group:group,value:value};
+    el.classList.add('picked');
+    arm(group,true);
+  }
+  function zoneAt(x,y,group){
+    var t=document.elementFromPoint(x,y);
+    if(!t||!t.closest) return null;
+    var el=t.closest('.dropzone');
+    if(!el) return null;
+    var found=null;
+    zones.forEach(function(z){ if(z.el===el&&z.group===group) found=z; });
+    return found;
+  }
+  function zone(el,group,onDrop){
+    el.classList.add('dropzone');
+    zones.push({el:el,group:group,onDrop:onDrop});
+    el.addEventListener('click',function(){
+      if(sel&&sel.group===group){ var s=sel; unpick(); onDrop(s.value,s.el); }
+    });
+    el.addEventListener('keydown',function(e){
+      if((e.key===' '||e.key==='Enter')&&sel&&sel.group===group){
+        e.preventDefault(); var s=sel; unpick(); onDrop(s.value,s.el);
+      }
+    });
+  }
+  return {register:register,zone:zone,unpick:unpick};
+})();
+
+function shake(el){ el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+function setMsg(el,text,kind){ el.textContent=text; el.className='msg'+(kind?' '+kind:''); }
+function shuffle(a){ var i,j,t; for(i=a.length-1;i>0;i--){ j=Math.floor(Math.random()*(i+1)); t=a[i];a[i]=a[j];a[j]=t; } return a; }
+
+/* ================= 완두 그림 ================= */
+function wrinkledPath(cx,cy,r){
+  var pts=[],i,t,rr,steps=140;
+  for(i=0;i<steps;i++){
+    t=i/steps*Math.PI*2;
+    rr=r*(1+0.105*Math.sin(9*t)+0.045*Math.sin(4*t+0.9));
+    pts.push((cx+rr*Math.cos(t)).toFixed(1)+","+(cy+rr*Math.sin(t)).toFixed(1));
+  }
+  return "M"+pts.join("L")+"Z";
+}
+function pea(round,fill,stroke,size){
+  var s=size, c=s/2, r=s*0.40;
+  var body=round
+    ? '<ellipse cx="'+c+'" cy="'+c+'" rx="'+r+'" ry="'+(r*0.96)+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="2"/>'
+    : '<path d="'+wrinkledPath(c,c,r*0.93)+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="2" stroke-linejoin="round"/>';
+  var shine='<ellipse cx="'+(c-r*0.32)+'" cy="'+(c-r*0.34)+'" rx="'+(r*0.28)+'" ry="'+(r*0.18)+'" fill="#fff" opacity=".38" transform="rotate(-28 '+(c-r*0.32)+' '+(c-r*0.34)+')"/>';
+  var hilum='<circle cx="'+(c+r*0.10)+'" cy="'+(c-r*0.52)+'" r="'+(s*0.022)+'" fill="'+stroke+'"/>';
+  return '<svg viewBox="0 0 '+s+' '+s+'" width="'+s+'" height="'+s+'" aria-hidden="true">'+body+shine+hilum+'</svg>';
+}
+document.getElementById('podart').innerHTML=
+  '<svg viewBox="0 0 150 150" width="100%" aria-hidden="true">'+
+  '<path d="M22 96C22 52 52 22 96 22c18 0 32 14 32 32 0 44-30 74-74 74-18 0-32-14-32-32z" fill="#DCE9C6" stroke="#3A5B21" stroke-width="2.5"/>'+
+  '<circle cx="53" cy="97" r="13" fill="#7CA84F" stroke="#3A5B21" stroke-width="2"/>'+
+  '<circle cx="75" cy="75" r="13" fill="#7CA84F" stroke="#3A5B21" stroke-width="2"/>'+
+  '<circle cx="97" cy="53" r="13" fill="#E0AE2A" stroke="#3A5B21" stroke-width="2"/></svg>';
+
+/* ================= 1. 왜 완두인가 ================= */
+var WHY=[
+  {id:'why0', word:'한 세대'},
+  {id:'why1', word:'자손의 수'},
+  {id:'why2', word:'대립형질'},
+  {id:'why3', word:'교배'}
+];
+var whyMsg=document.getElementById('whyMsg'), whyTray=document.getElementById('whyTray');
+function whyStatus(){
+  var n=WHY.filter(function(w){return document.getElementById(w.id).classList.contains('done');}).length;
+  document.getElementById('whyStatus').textContent='4개 중 '+n+'개 완성';
+}
+function buildWhy(){
+  whyTray.innerHTML='';
+  shuffle(WHY.slice()).forEach(function(w){
+    var c=document.createElement('div');
+    c.className='card'; c.textContent=w.word; c.tabIndex=0;
+    c.setAttribute('role','button');
+    whyTray.appendChild(c);
+    DND.register(c,'why',w.word);
+  });
+  WHY.forEach(function(w){
+    var b=document.getElementById(w.id);
+    b.className='blank'; b.textContent='?';
+  });
+  setMsg(whyMsg,''); whyStatus();
+}
+WHY.forEach(function(w){
+  var b=document.getElementById(w.id);
+  b.setAttribute('role','button');
+  DND.zone(b,'why',function(value,srcEl){
+    if(b.classList.contains('done')){ setMsg(whyMsg,'이미 채워진 칸입니다.','no'); return; }
+    if(value!==w.word){
+      shake(b); setMsg(whyMsg,'"'+value+'" 카드는 이 문장에 맞지 않습니다. 문장을 소리 내어 읽어 보세요.','no');
+      return;
+    }
+    b.textContent=value; b.classList.add('done');
+    srcEl.classList.add('gone'); srcEl.dataset.off='1';
+    whyStatus();
+    var done=WHY.every(function(x){return document.getElementById(x.id).classList.contains('done');});
+    setMsg(whyMsg, done?'네 가지 조건이 모두 맞습니다. 이 조건들이 있어서 완두는 유전 실험에 딱 맞습니다.':'맞습니다.','ok');
+    if(whyTray.querySelectorAll('.card:not(.gone)').length===0) whyTray.classList.add('empty');
+  });
+});
+document.getElementById('whyReset').addEventListener('click',function(){ whyTray.classList.remove('empty'); buildWhy(); });
+
+/* ================= 2. 수분 ================= */
+var POL=[{id:'polSelf', word:'자가수분'},{id:'polCross', word:'타가수분'}];
+var polTray=document.getElementById('polTray'), polMsg=document.getElementById('polMsg');
+function buildPol(){
+  polTray.innerHTML=''; polTray.classList.remove('empty');
+  shuffle(POL.slice()).forEach(function(p){
+    var c=document.createElement('div');
+    c.className='card'; c.textContent=p.word; c.tabIndex=0; c.setAttribute('role','button');
+    polTray.appendChild(c);
+    DND.register(c,'pol',p.word);
+  });
+  POL.forEach(function(p){
+    var b=document.getElementById(p.id);
+    b.className='blank namedrop dropzone'; b.textContent='?';
+  });
+  setMsg(polMsg,'');
+}
+POL.forEach(function(p){
+  var b=document.getElementById(p.id);
+  b.setAttribute('role','button');
+  DND.zone(b,'pol',function(value,srcEl){
+    if(b.classList.contains('done')){ setMsg(polMsg,'이미 이름을 붙인 상자입니다.','no'); return; }
+    if(value!==p.word){
+      shake(b);
+      setMsg(polMsg,'설명을 다시 읽어 보세요. 꽃가루가 같은 그루로 가는지, 다른 그루로 가는지가 갈림길입니다.','no');
+      return;
+    }
+    b.textContent=value; b.classList.add('done');
+    srcEl.classList.add('gone'); srcEl.dataset.off='1';
+    var done=POL.every(function(x){return document.getElementById(x.id).classList.contains('done');});
+    if(done){
+      polTray.classList.add('empty');
+      setMsg(polMsg,'맞습니다. 아래 시뮬레이터에서는 어버이를 타가수분으로 교배하고, 자손 1대는 자가수분시킵니다.','ok');
+    } else setMsg(polMsg,'맞습니다.','ok');
+  });
+});
+document.getElementById('polReset').addEventListener('click',buildPol);
+
+/* ================= 3. 시뮬레이터 ================= */
+var TRAITS={
+  shape:{
+    key:'shape', D:'R', r:'r', Dname:'둥근', rname:'주름진',
+    intro:'둥근 완두가 우성입니다. 우성 유전자는 <span class="gene">R</span>, 열성 유전자는 <span class="gene">r</span>로 씁니다. 순종 둥근 완두(<span class="gene">RR</span>)와 순종 주름진 완두(<span class="gene">rr</span>)의 교배부터 시작합니다.',
+    look:function(g){ return {round:g.indexOf('R')>=0, fill:'#8FBB5E', stroke:'#3A5B21'}; }
+  },
+  color:{
+    key:'color', D:'Y', r:'y', Dname:'노란', rname:'초록',
+    intro:'이번엔 색깔입니다. 노란 완두가 우성이라 <span class="gene">Y</span>, 초록 완두가 열성이라 <span class="gene">y</span>로 씁니다. 모양은 모두 둥글고 색깔만 달라집니다.',
+    look:function(g){ var y=g.indexOf('Y')>=0; return {round:true, fill:y?'#E9C244':'#8FBB5E', stroke:y?'#9A7412':'#3A5B21'}; }
+  }
+};
+var T=TRAITS.shape, S={};
+
+function peaBox(g,size){
+  var lk=T.look(g);
+  return '<div class="peaframe'+(size<90?' sm':'')+'">'+pea(lk.round,lk.fill,lk.stroke,size)+'</div>';
+}
+function drawPea(el,g,size){ el.innerHTML=peaBox(g,size); }
+function norm(g){ return g.split('').sort(function(a,b){ return a===T.D?-1:(b===T.D?1:0); }).join(''); }
+function sameGenes(a,b){ return a.split('').sort().join('')===b.split('').sort().join(''); }
+function phenoName(g){ return g.indexOf(T.D)>=0?T.Dname:T.rname; }
+
+function makeAlleleChips(containerId,alleles,group){
+  var box=document.getElementById(containerId);
+  box.innerHTML='';
+  alleles.forEach(function(a){
+    var el=document.createElement('div');
+    el.className='allele gene'; el.textContent=a; el.tabIndex=0; el.setAttribute('role','button');
+    el.setAttribute('aria-label','유전자 '+a);
+    box.appendChild(el);
+    DND.register(el,group,a);
+  });
+}
+function clearSlot(id,ph){
+  var el=document.getElementById(id);
+  el.className='slot dropzone'; el.dataset.value='';
+  el.innerHTML='<span class="ph">'+ph+'</span>';
+}
+function clearGSlot(id,ph){
+  var el=document.getElementById(id);
+  el.className='gslot dropzone'; el.dataset.value='';
+  el.innerHTML='<span class="ph">'+ph+'</span>';
+}
+
+/* --- 1단계 드롭 칸 --- */
+[['slotEgg','egg','난세포'],['slotPollen','pollen','꽃가루']].forEach(function(cfg){
+  var el=document.getElementById(cfg[0]);
+  el.setAttribute('role','button');
+  DND.zone(el,'gam1',function(value){
+    S[cfg[1]]=value;
+    el.className='slot dropzone filled';
+    el.textContent=value;
+    document.getElementById('s1check').disabled=!(S.egg&&S.pollen);
+    setMsg(document.getElementById('s1msg'),'');
+  });
+});
+
+/* --- 3단계 드롭 칸 --- */
+['row0','row1','col0','col1'].forEach(function(id){
+  var el=document.getElementById(id);
+  el.setAttribute('role','button');
+  DND.zone(el,'gam2',function(value){
+    el.className='gslot dropzone filled';
+    el.dataset.value=value;
+    el.textContent=value;
+    setMsg(document.getElementById('s3msg'),'');
+  });
+});
+
+function buildCell(i){
+  var cell=document.getElementById('cell'+i);
+  cell.className='cell';
+  var opts=[T.D+T.D, T.D+T.r, T.r+T.r];
+  cell.innerHTML='<div id="cellpea'+i+'"></div>'+
+    '<select id="cellsel'+i+'" aria-label="'+(i+1)+'번 칸 유전자형"><option value="">?</option>'+
+    opts.map(function(o){return '<option value="'+o+'">'+o+'</option>';}).join('')+'</select>';
+  document.getElementById('cellsel'+i).addEventListener('change',function(){
+    document.getElementById('cellpea'+i).innerHTML=this.value?peaBox(this.value,72):'';
+    document.getElementById('cell'+i).className='cell';
+    setMsg(document.getElementById('s3msg'),'');
+  });
+}
+
+function resetSim(){
+  S={egg:null,pollen:null,f1:null};
+  DND.unpick();
+  document.getElementById('traitIntro').innerHTML=T.intro;
+  [1,2,3].forEach(function(n){
+    var st=document.getElementById('step'+n);
+    st.setAttribute('data-done','false');
+    st.setAttribute('data-locked',n===1?'false':'true');
+  });
+
+  var P1=T.D+T.D, P2=T.r+T.r;
+  document.getElementById('s1hint').innerHTML='순종 '+T.Dname+' 완두와 순종 '+T.rname+' 완두를 교배합니다. 각 완두의 유전자 한 개를 아래 칸으로 끌어다 놓으세요.';
+  drawPea(document.getElementById('p1pea'),P1,104);
+  drawPea(document.getElementById('p2pea'),P2,104);
+  document.getElementById('p1geno').textContent=P1;
+  document.getElementById('p2geno').textContent=P2;
+  makeAlleleChips('p1chips',P1.split(''),'gam1');
+  makeAlleleChips('p2chips',P2.split(''),'gam1');
+  clearSlot('slotEgg','난세포'); clearSlot('slotPollen','꽃가루');
+  document.getElementById('s1check').disabled=true;
+  setMsg(document.getElementById('s1msg'),'');
+  document.getElementById('s1result').innerHTML='';
+
+  var sel=document.getElementById('s2sel');
+  sel.innerHTML='<option value="">고르기</option>'+[T.D+T.D,T.D+T.r,T.r+T.r].map(function(o){
+    return '<option value="'+o+'">'+o+'</option>';}).join('');
+  sel.className='';
+  document.getElementById('s2hint').innerHTML='자가수분은 <b>같은 개체</b>의 꽃가루가 자기 암술에 붙는 것입니다. 그렇다면 오른쪽 완두의 유전자형은?';
+  document.getElementById('f1peaR').innerHTML='<div class="peaframe" style="border:2px dashed var(--line);border-radius:50%"><span style="color:#9AA88C;font-size:15px">?</span></div>';
+  setMsg(document.getElementById('s2msg'),'');
+
+  document.getElementById('s3hint').innerHTML='자손 1대끼리 자가수분하면 자손 2대가 나옵니다. 생식세포를 넣고, 만나서 생기는 유전자형을 네 칸에서 고르세요.';
+  clearGSlot('row0','난세포'); clearGSlot('row1','난세포');
+  clearGSlot('col0','꽃가루'); clearGSlot('col1','꽃가루');
+  document.getElementById('s3chips').innerHTML='';
+  document.getElementById('s3pea').innerHTML='';
+  document.getElementById('s3geno').textContent='';
+  for(var i=0;i<4;i++) buildCell(i);
+  setMsg(document.getElementById('s3msg'),'');
+  document.getElementById('s3result').innerHTML='';
+}
+
+/* --- 1단계 확인 --- */
+document.getElementById('s1check').addEventListener('click',function(){
+  var g=norm(S.egg+S.pollen);
+  S.f1=g;
+  document.getElementById('s1result').innerHTML=
+    '<div class="f1out"><div>'+peaBox(g,88)+'</div><div class="txt">자손 1대의 유전자형은 <strong class="gene">'+g+'</strong>입니다.<br>'+
+    '우성 유전자 <span class="gene">'+T.D+'</span>가 있으므로 겉모습은 모두 <strong>'+phenoName(g)+' 완두</strong>. '+
+    T.rname+' 완두의 <span class="gene">'+T.r+'</span>는 사라진 게 아니라 가려져 있을 뿐입니다.</div></div>';
+  setMsg(document.getElementById('s1msg'),'순종끼리 교배하면 자손 1대는 모두 같은 유전자형이 됩니다.','ok');
+  document.getElementById('step1').setAttribute('data-done','true');
+  document.getElementById('step2').setAttribute('data-locked','false');
+  drawPea(document.getElementById('f1peaL'),g,104);
+  document.getElementById('f1genoL').textContent=g;
+  document.getElementById('step2').scrollIntoView({block:'center'});
+});
+document.getElementById('s1reset').addEventListener('click',resetSim);
+
+/* --- 2단계 --- */
+document.getElementById('s2sel').addEventListener('change',function(){
+  this.className=''; setMsg(document.getElementById('s2msg'),'');
+});
+document.getElementById('s2check').addEventListener('click',function(){
+  var sel=document.getElementById('s2sel'), v=sel.value, msg=document.getElementById('s2msg');
+  if(!v){ setMsg(msg,'유전자형을 먼저 고르세요.','no'); shake(sel); return; }
+  if(!sameGenes(v,S.f1)){
+    sel.className='no'; shake(sel);
+    setMsg(msg,'자가수분은 다른 완두와의 교배가 아닙니다. 자손 1대 자기 자신의 꽃가루라면 유전자형도 똑같아야겠지요.','no');
+    return;
+  }
+  sel.className='ok';
+  drawPea(document.getElementById('f1peaR'),S.f1,104);
+  setMsg(msg,'맞습니다. '+S.f1+' × '+S.f1+' 자가수분입니다.','ok');
+  document.getElementById('step2').setAttribute('data-done','true');
+  document.getElementById('step3').setAttribute('data-locked','false');
+  drawPea(document.getElementById('s3pea'),S.f1,80);
+  document.getElementById('s3geno').textContent=S.f1;
+  makeAlleleChips('s3chips',[T.D,T.r],'gam2');
+  document.getElementById('step3').scrollIntoView({block:'center'});
+});
+
+/* --- 3단계 --- */
+document.getElementById('s3reset').addEventListener('click',function(){
+  clearGSlot('row0','난세포'); clearGSlot('row1','난세포');
+  clearGSlot('col0','꽃가루'); clearGSlot('col1','꽃가루');
+  for(var i=0;i<4;i++) buildCell(i);
+  setMsg(document.getElementById('s3msg'),'');
+  document.getElementById('s3result').innerHTML='';
+  document.getElementById('step3').setAttribute('data-done','false');
+});
+
+document.getElementById('s3check').addEventListener('click',function(){
+  var msg=document.getElementById('s3msg');
+  var rows=[document.getElementById('row0'),document.getElementById('row1')];
+  var cols=[document.getElementById('col0'),document.getElementById('col1')];
+  var i;
+  for(i=0;i<2;i++){
+    if(!rows[i].dataset.value||!cols[i].dataset.value){
+      setMsg(msg,'난세포와 꽃가루 칸을 모두 채우세요.','no'); return;
+    }
+  }
+  if(!sameGenes(rows[0].dataset.value+rows[1].dataset.value, T.D+T.r)){
+    rows.forEach(function(s){ s.classList.add('no'); }); shake(rows[0]);
+    setMsg(msg,'자손 1대는 '+S.f1+'입니다. 감수분열로 유전자가 하나씩 나뉘므로 난세포는 '+T.D+'와 '+T.r+' 두 가지가 만들어집니다.','no');
+    return;
+  }
+  if(!sameGenes(cols[0].dataset.value+cols[1].dataset.value, T.D+T.r)){
+    cols.forEach(function(s){ s.classList.add('no'); }); shake(cols[0]);
+    setMsg(msg,'꽃가루도 마찬가지입니다. '+T.D+'와 '+T.r+' 두 가지가 나옵니다.','no');
+    return;
+  }
+  rows.concat(cols).forEach(function(s){ s.classList.remove('no'); s.classList.add('ok'); });
+
+  var ok=true, counts={};
+  for(i=0;i<4;i++){
+    var rr=Math.floor(i/2), cc=i%2;
+    var expect=rows[rr].dataset.value+cols[cc].dataset.value;
+    var sel=document.getElementById('cellsel'+i), cell=document.getElementById('cell'+i);
+    if(!sel.value){ ok=false; cell.className='cell no'; continue; }
+    if(sameGenes(sel.value,expect)){
+      cell.className='cell ok';
+      var n=norm(sel.value); counts[n]=(counts[n]||0)+1;
+    } else { cell.className='cell no'; ok=false; }
+  }
+  if(!ok){
+    shake(document.querySelector('.punnett'));
+    setMsg(msg,'빨간 칸을 다시 보세요. 그 칸의 유전자형은 왼쪽 난세포와 위쪽 꽃가루를 그대로 붙인 것입니다.','no');
+    document.getElementById('s3result').innerHTML=''; return;
+  }
+  setMsg(msg,'표를 모두 맞게 채웠습니다.','ok');
+  document.getElementById('step3').setAttribute('data-done','true');
+  showRatio(counts);
+});
+
+function showRatio(counts){
+  var DD=T.D+T.D, Dr=T.D+T.r, rr=T.r+T.r;
+  var a=counts[DD]||0, b=counts[Dr]||0, c=counts[rr]||0;
+  var other=(T.key==='shape')?'color':'shape';
+  document.getElementById('s3result').innerHTML=
+    '<div class="ratio"><h4>자손 2대에서 나온 비율</h4>'+
+    '<div class="line">유전자형 &nbsp;<span class="big gene">'+DD+' : '+Dr+' : '+rr+'</span>&nbsp; = &nbsp;<span class="big">'+a+' : '+b+' : '+c+'</span></div>'+
+    '<div class="line">겉모습 &nbsp;<span class="big">'+T.Dname+' : '+T.rname+'</span>&nbsp; = &nbsp;<span class="big">'+(a+b)+' : '+c+'</span></div>'+
+    '<p style="margin:10px 0 0;font-size:14.5px;color:var(--ink-soft)">자손 1대에서 사라진 듯 보였던 '+T.rname+
+    ' 완두가 자손 2대에서 4개 중 1개꼴로 다시 나타납니다. 열성 유전자 <span class="gene">'+T.r+
+    '</span>가 자손 1대에 숨어 있다가 둘이 만났을 때 겉으로 드러난 것입니다.</p>'+
+    '<div class="row"><button class="act" id="again">'+
+    (other==='color'?'노랑·초록 완두로 한 번 더 하기':'둥근·주름진 완두로 한 번 더 하기')+'</button></div></div>';
+  document.getElementById('again').addEventListener('click',function(){ switchTrait(other); });
+}
+
+function switchTrait(key){
+  T=TRAITS[key];
+  document.getElementById('btShape').setAttribute('aria-pressed',key==='shape');
+  document.getElementById('btColor').setAttribute('aria-pressed',key==='color');
+  resetSim();
+  document.getElementById('sim').scrollIntoView({block:'start'});
+}
+document.getElementById('btShape').addEventListener('click',function(){ switchTrait('shape'); });
+document.getElementById('btColor').addEventListener('click',function(){ switchTrait('color'); });
+
+/* ================= 시작 ================= */
+buildWhy();
+buildPol();
+resetSim();
+})();
+</script>
+</body>
+</html>
