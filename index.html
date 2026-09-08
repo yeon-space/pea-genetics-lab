@@ -215,19 +215,19 @@
   <div class="tray" id="whyTray"></div>
   <div class="reasons">
     <div class="reason">
-      <div class="stmt">완두는 <span class="blank" id="why0" tabindex="0">?</span>가 짧다</div>
+      <div class="stmt">완두는 <span class="blank dropzone" id="why0" tabindex="0">?</span>가 짧다</div>
       <p>씨를 심고 다시 씨를 얻기까지 오래 걸리지 않아, 여러 세대를 이어서 관찰할 수 있습니다.</p>
     </div>
     <div class="reason">
-      <div class="stmt">완두는 한 번에 얻는 <span class="blank" id="why1" tabindex="0">?</span>가 많다</div>
+      <div class="stmt">완두는 한 번에 얻는 <span class="blank dropzone" id="why1" tabindex="0">?</span>가 많다</div>
       <p>수가 많을수록 우연은 줄고 비율은 또렷해집니다. 3:1이 눈에 보이려면 많이 필요합니다.</p>
     </div>
     <div class="reason">
-      <div class="stmt">완두는 <span class="blank" id="why2" tabindex="0">?</span>이 뚜렷하다</div>
+      <div class="stmt">완두는 <span class="blank dropzone" id="why2" tabindex="0">?</span>이 뚜렷하다</div>
       <p>둥글거나 주름지거나, 노랗거나 초록이거나. 중간이 없어서 세어서 비교하기 쉽습니다.</p>
     </div>
     <div class="reason">
-      <div class="stmt">완두는 자유롭게 <span class="blank" id="why3" tabindex="0">?</span>할 수 있다</div>
+      <div class="stmt">완두는 자유롭게 <span class="blank dropzone" id="why3" tabindex="0">?</span>할 수 있다</div>
       <p>보통은 스스로 수분하지만, 사람이 꽃가루를 옮겨 원하는 짝끼리 붙여줄 수도 있습니다.</p>
     </div>
   </div>
@@ -561,7 +561,7 @@ function buildWhy(){
   });
   WHY.forEach(function(w){
     var b=document.getElementById(w.id);
-    b.className='blank'; b.textContent='?';
+    b.className='blank dropzone'; b.textContent='?';
   });
   setMsg(whyMsg,''); whyStatus();
 }
