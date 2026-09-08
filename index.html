@@ -441,7 +441,7 @@ var DND=(function(){
   function move(e){
     if(!drag) return;
     if(!moved){
-      if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)<8) return;
+      if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)<5) return;
       moved=true;
       unpick();
       var r=drag.el.getBoundingClientRect();
@@ -449,6 +449,7 @@ var DND=(function(){
       ghost.classList.add('ghost');
       ghost.style.width=r.width+'px';
       ghost.style.height=r.height+'px';
+      ghost.style.pointerEvents='none';
       document.body.appendChild(ghost);
       drag.el.classList.add('lifting');
       arm(drag.group,true);
@@ -485,25 +486,60 @@ var DND=(function(){
     arm(group,true);
   }
   function zoneAt(x,y,group){
-    var t=document.elementFromPoint(x,y);
-    if(!t||!t.closest) return null;
-    var el=t.closest('.dropzone');
-    if(!el) return null;
-    var found=null;
-    zones.forEach(function(z){ if(z.el===el&&z.group===group) found=z; });
-    return found;
+    if(ghost) ghost.style.display='none';
+    var elems = document.elementsFromPoint ? document.elementsFromPoint(x,y) : [document.elementFromPoint(x,y)];
+    if(ghost) ghost.style.display='';
+    if(!elems) return null;
+
+    var i, k, item, el;
+    // 1. Direct dropzone check
+    for(i=0; i<elems.length; i++){
+      item = elems[i];
+      if(!item) continue;
+      el = item.closest ? item.closest('.dropzone') : null;
+      if(el){
+        for(k=0; k<zones.length; k++){
+          if(zones[k].el===el && zones[k].group===group) return zones[k];
+        }
+      }
+    }
+
+    // 2. Container check (.reason, .pcard, .plant, .cell)
+    for(i=0; i<elems.length; i++){
+      item = elems[i];
+      if(!item) continue;
+      var container = item.closest ? item.closest('.reason, .pcard, .plant, .cell') : null;
+      if(container){
+        var dz = container.querySelector('.dropzone');
+        if(dz){
+          for(k=0; k<zones.length; k++){
+            if(zones[k].el===dz && zones[k].group===group) return zones[k];
+          }
+        }
+      }
+    }
+
+    return null;
   }
   function zone(el,group,onDrop){
     el.classList.add('dropzone');
     zones.push({el:el,group:group,onDrop:onDrop});
-    el.addEventListener('click',function(){
+    var handler=function(){
       if(sel&&sel.group===group){ var s=sel; unpick(); onDrop(s.value,s.el); }
-    });
+    };
+    el.addEventListener('click',handler);
     el.addEventListener('keydown',function(e){
       if((e.key===' '||e.key==='Enter')&&sel&&sel.group===group){
-        e.preventDefault(); var s=sel; unpick(); onDrop(s.value,s.el);
+        e.preventDefault(); handler();
       }
     });
+    var container = el.closest ? el.closest('.reason, .pcard') : null;
+    if(container && container !== el){
+      container.addEventListener('click',function(e){
+        if(e.target===el || el.contains(e.target)) return;
+        handler();
+      });
+    }
   }
   return {register:register,zone:zone,unpick:unpick};
 })();
