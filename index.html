@@ -78,8 +78,11 @@
     display:inline-block;min-width:104px;text-align:center;vertical-align:middle;
     border:2px dashed var(--line);border-radius:9px;background:#fff;
     padding:4px 10px;font-size:16px;color:#9AA88C;font-weight:600;
+    cursor:pointer;transition:all .15s ease;
   }
-  .blank.done{border-style:solid;border-color:var(--leaf);background:#F2F8EA;color:var(--ink)}
+  .blank.filled{border-style:solid;border-color:var(--leaf-deep);background:#F9FBF6;color:var(--ink)}
+  .blank.done,.blank.ok{border-style:solid;border-color:var(--leaf);background:#F2F8EA;color:var(--ink)}
+  .blank.no{border-style:solid;border-color:var(--wrong);background:#FBEDE9;color:var(--wrong)}
   @media(max-width:640px){
     .reasons{grid-template-columns:1fr}
     .reason{border-right:none!important;border-bottom:1px solid var(--line)!important}
@@ -231,7 +234,10 @@
       <p>보통은 스스로 수분하지만, 사람이 꽃가루를 옮겨 원하는 짝끼리 붙여줄 수도 있습니다.</p>
     </div>
   </div>
-  <div class="row"><button class="ghostbtn" id="whyReset">카드 다시 놓기</button></div>
+  <div class="row">
+    <button class="act" id="whyCheck" disabled>정답 확인</button>
+    <button class="ghostbtn" id="whyReset">카드 다시 놓기</button>
+  </div>
   <p class="msg" id="whyMsg"></p>
 </section>
 
@@ -271,7 +277,10 @@
       <p class="pt">다른 유전자형과 교배</p>
     </div>
   </div>
-  <div class="row"><button class="ghostbtn" id="polReset">카드 다시 놓기</button></div>
+  <div class="row">
+    <button class="act" id="polCheck" disabled>정답 확인</button>
+    <button class="ghostbtn" id="polReset">카드 다시 놓기</button>
+  </div>
   <p class="msg" id="polMsg"></p>
 </section>
 
@@ -541,7 +550,7 @@ var DND=(function(){
       });
     }
   }
-  return {register:register,zone:zone,unpick:unpick};
+  return {register:register,zone:zone,unpick:unpick,hasSelected:function(g){return sel&&(g?sel.group===g:true);}};
 })();
 
 function shake(el){ el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
@@ -581,15 +590,33 @@ var WHY=[
   {id:'why2', word:'대립형질'},
   {id:'why3', word:'교배'}
 ];
-var whyMsg=document.getElementById('whyMsg'), whyTray=document.getElementById('whyTray');
+var whyMsg=document.getElementById('whyMsg'), whyTray=document.getElementById('whyTray'), whyCheck=document.getElementById('whyCheck');
+
 function whyStatus(){
-  var n=WHY.filter(function(w){return document.getElementById(w.id).classList.contains('done');}).length;
-  document.getElementById('whyStatus').textContent='4개 중 '+n+'개 완성';
+  var filled=WHY.filter(function(w){
+    var b=document.getElementById(w.id);
+    return b.dataset.value && b.dataset.value.length>0;
+  }).length;
+  document.getElementById('whyStatus').textContent='4개 중 '+filled+'개 배치 완료';
+  if(whyCheck) whyCheck.disabled = (filled < 4);
 }
+
+function clearWhySlot(b){
+  if(b.dataset.srcId){
+    var card=document.getElementById(b.dataset.srcId);
+    if(card){ card.classList.remove('gone'); delete card.dataset.off; }
+  }
+  delete b.dataset.value;
+  delete b.dataset.srcId;
+  b.textContent='?';
+  b.className='blank dropzone';
+}
+
 function buildWhy(){
-  whyTray.innerHTML='';
-  shuffle(WHY.slice()).forEach(function(w){
+  whyTray.innerHTML=''; whyTray.classList.remove('empty');
+  WHY.forEach(function(w, idx){
     var c=document.createElement('div');
+    c.id='whyCard_'+idx;
     c.className='card'; c.textContent=w.word; c.tabIndex=0;
     c.setAttribute('role','button');
     whyTray.appendChild(c);
@@ -597,65 +624,153 @@ function buildWhy(){
   });
   WHY.forEach(function(w){
     var b=document.getElementById(w.id);
-    b.className='blank dropzone'; b.textContent='?';
+    clearWhySlot(b);
   });
   setMsg(whyMsg,''); whyStatus();
 }
+
 WHY.forEach(function(w){
   var b=document.getElementById(w.id);
   b.setAttribute('role','button');
-  DND.zone(b,'why',function(value,srcEl){
-    if(b.classList.contains('done')){ setMsg(whyMsg,'이미 채워진 칸입니다.','no'); return; }
-    if(value!==w.word){
-      shake(b); setMsg(whyMsg,'"'+value+'" 카드는 이 문장에 맞지 않습니다. 문장을 소리 내어 읽어 보세요.','no');
-      return;
+
+  b.addEventListener('click', function(e){
+    if(b.dataset.value && !DND.hasSelected('why')){
+      clearWhySlot(b);
+      whyTray.classList.remove('empty');
+      setMsg(whyMsg,''); whyStatus();
     }
-    b.textContent=value; b.classList.add('done');
+  });
+
+  DND.zone(b,'why',function(value,srcEl){
+    if(b.dataset.srcId && b.dataset.srcId !== srcEl.id){
+      var oldCard=document.getElementById(b.dataset.srcId);
+      if(oldCard){ oldCard.classList.remove('gone'); delete oldCard.dataset.off; }
+    }
+    b.textContent=value;
+    b.dataset.value=value;
+    b.dataset.srcId=srcEl.id;
+    b.className='blank dropzone filled';
     srcEl.classList.add('gone'); srcEl.dataset.off='1';
+    
+    setMsg(whyMsg,'');
     whyStatus();
-    var done=WHY.every(function(x){return document.getElementById(x.id).classList.contains('done');});
-    setMsg(whyMsg, done?'네 가지 조건이 모두 맞습니다. 이 조건들이 있어서 완두는 유전 실험에 딱 맞습니다.':'맞습니다.','ok');
+
     if(whyTray.querySelectorAll('.card:not(.gone)').length===0) whyTray.classList.add('empty');
   });
 });
+
+if(whyCheck){
+  whyCheck.addEventListener('click', function(){
+    var correctCount=0;
+    WHY.forEach(function(w){
+      var b=document.getElementById(w.id);
+      if(b.dataset.value === w.word){
+        b.className='blank dropzone ok';
+        correctCount++;
+      } else {
+        b.className='blank dropzone no';
+        shake(b.closest('.reason')||b);
+      }
+    });
+
+    if(correctCount === WHY.length){
+      setMsg(whyMsg, '네 가지 조건이 모두 맞습니다! 이 조건들이 있어서 완두는 유전 실험에 딱 맞습니다.', 'ok');
+    } else {
+      setMsg(whyMsg, '틀린 칸이 있습니다. 빨간색으로 표시된 칸을 확인하고 카드를 다시 배치해 보세요.', 'no');
+    }
+  });
+}
+
 document.getElementById('whyReset').addEventListener('click',function(){ whyTray.classList.remove('empty'); buildWhy(); });
 
 /* ================= 2. 수분 ================= */
 var POL=[{id:'polSelf', word:'자가수분'},{id:'polCross', word:'타가수분'}];
-var polTray=document.getElementById('polTray'), polMsg=document.getElementById('polMsg');
+var polTray=document.getElementById('polTray'), polMsg=document.getElementById('polMsg'), polCheck=document.getElementById('polCheck');
+
+function clearPolSlot(b){
+  if(b.dataset.srcId){
+    var card=document.getElementById(b.dataset.srcId);
+    if(card){ card.classList.remove('gone'); delete card.dataset.off; }
+  }
+  delete b.dataset.value;
+  delete b.dataset.srcId;
+  b.textContent='?';
+  b.className='blank namedrop dropzone';
+}
+
 function buildPol(){
   polTray.innerHTML=''; polTray.classList.remove('empty');
-  shuffle(POL.slice()).forEach(function(p){
+  POL.forEach(function(p, idx){
     var c=document.createElement('div');
+    c.id='polCard_'+idx;
     c.className='card'; c.textContent=p.word; c.tabIndex=0; c.setAttribute('role','button');
     polTray.appendChild(c);
     DND.register(c,'pol',p.word);
   });
   POL.forEach(function(p){
     var b=document.getElementById(p.id);
-    b.className='blank namedrop dropzone'; b.textContent='?';
+    clearPolSlot(b);
   });
   setMsg(polMsg,'');
+  if(polCheck) polCheck.disabled = true;
 }
+
 POL.forEach(function(p){
   var b=document.getElementById(p.id);
   b.setAttribute('role','button');
-  DND.zone(b,'pol',function(value,srcEl){
-    if(b.classList.contains('done')){ setMsg(polMsg,'이미 이름을 붙인 상자입니다.','no'); return; }
-    if(value!==p.word){
-      shake(b);
-      setMsg(polMsg,'설명을 다시 읽어 보세요. 꽃가루가 같은 그루로 가는지, 다른 그루로 가는지가 갈림길입니다.','no');
-      return;
+
+  b.addEventListener('click', function(e){
+    if(b.dataset.value && !DND.hasSelected('pol')){
+      clearPolSlot(b);
+      polTray.classList.remove('empty');
+      setMsg(polMsg,'');
+      if(polCheck) polCheck.disabled = true;
     }
-    b.textContent=value; b.classList.add('done');
+  });
+
+  DND.zone(b,'pol',function(value,srcEl){
+    if(b.dataset.srcId && b.dataset.srcId !== srcEl.id){
+      var oldCard=document.getElementById(b.dataset.srcId);
+      if(oldCard){ oldCard.classList.remove('gone'); delete oldCard.dataset.off; }
+    }
+    b.textContent=value;
+    b.dataset.value=value;
+    b.dataset.srcId=srcEl.id;
+    b.className='blank namedrop dropzone filled';
     srcEl.classList.add('gone'); srcEl.dataset.off='1';
-    var done=POL.every(function(x){return document.getElementById(x.id).classList.contains('done');});
-    if(done){
-      polTray.classList.add('empty');
-      setMsg(polMsg,'맞습니다. 아래 시뮬레이터에서는 어버이를 타가수분으로 교배하고, 자손 1대는 자가수분시킵니다.','ok');
-    } else setMsg(polMsg,'맞습니다.','ok');
+    
+    setMsg(polMsg,'');
+    var filled=POL.every(function(x){
+      var slot=document.getElementById(x.id);
+      return slot.dataset.value && slot.dataset.value.length>0;
+    });
+    if(polCheck) polCheck.disabled = !filled;
+    if(polTray.querySelectorAll('.card:not(.gone)').length===0) polTray.classList.add('empty');
   });
 });
+
+if(polCheck){
+  polCheck.addEventListener('click', function(){
+    var correctCount=0;
+    POL.forEach(function(p){
+      var b=document.getElementById(p.id);
+      if(b.dataset.value === p.word){
+        b.className='blank namedrop dropzone ok';
+        correctCount++;
+      } else {
+        b.className='blank namedrop dropzone no';
+        shake(b.closest('.pcard')||b);
+      }
+    });
+
+    if(correctCount === POL.length){
+      setMsg(polMsg, '맞습니다. 아래 시뮬레이터에서는 어버이를 타가수분으로 교배하고, 자손 1대는 자가수분시킵니다.', 'ok');
+    } else {
+      setMsg(polMsg, '설명을 다시 읽어 보세요. 빨간색으로 표시된 상자의 이름표를 다시 배치해 보세요.', 'no');
+    }
+  });
+}
+
 document.getElementById('polReset').addEventListener('click',buildPol);
 
 /* ================= 3. 시뮬레이터 ================= */
